@@ -10,10 +10,13 @@ from Google import Create_Service
 class ExportToExcel:
     def __init__(self, folder_link, label):
         self.label = label  # GUI Label for showing info and file processing progress
-        self.drive_link = folder_link  # Link to Google Drive folder
+        self.drive_link = folder_link  # Link to Google Drive dir
         self.dir_id = None  # Google Drive dir ID from link
         self.service = None  # Service for Google Drive API
         self.all_files = None  # Store all files fetched from Google Drive
+        self.file_data = []  # Files data
+        self.dir_name = None  # Name of the main dir
+        self.tree = None  # Google Drive files tree
 
     def generate(self):
         try:
@@ -33,8 +36,8 @@ class ExportToExcel:
             parts = self.drive_link.split('/')
             self.dir_id = parts[-1].split('?')[0]
 
-            main_folder = self.service.files().get(fileId=self.dir_id, fields="name").execute()
-            folder_name = main_folder.get('name')
+            main_dir = self.service.files().get(fileId=self.dir_id, fields="name").execute()
+            self.dir_name = main_dir.get('name')
 
             # Fetch all files and folders
             self.all_files = self.get_all_files(self.service, self.dir_id)
@@ -44,42 +47,15 @@ class ExportToExcel:
             self.label.config(text=info)
 
             # Generating directory tree
-            tree = self.get_folder_structure(self.dir_id, tree=None)
+            self.tree = self.get_folder_structure(self.dir_id, tree=None)
 
-            file_data = []
             counter = 1
             total_files = len(self.all_files)
 
-            # Processing all files from directory
+            # Process all files from directory
             for file in self.all_files:
-                # Building the full path to the file on drive
-                full_path = get_full_path(tree, file)
-                path = folder_name
-                if full_path:
-                    path = folder_name + full_path
-
-                # Get the modification date
-                modified_time = file.get('modifiedTime')
-
-                # Get the owner info
-                owner = None
-                if 'owners' in file:
-                    owner = file['owners'][0]['displayName']
-
-                # Get the file size
-                file_size = file.get('size')
-
-                # Collecting all file data to the list
-                file_info = {
-                    'Name': file.get('name'),
-                    'Link': f"https://drive.google.com/file/d/{file['id']}",
-                    'Path': path,
-                    'Type': file.get('mimeType'),
-                    'Owner': owner,
-                    'Modification Date': modified_time,
-                    'File Size': file_size
-                }
-                file_data.append(file_info)
+                # Process current file
+                self.process(file)
 
                 # Count the progress of processed files
                 progress = round((counter / total_files * 100), 2)
@@ -96,7 +72,7 @@ class ExportToExcel:
                 counter += 1
 
             # Create data frame and saving it to excel
-            df = pd.DataFrame(file_data)
+            df = pd.DataFrame(self.file_data)
             excel_filename = 'Google_Drive_Files.xlsx'
             df.to_excel(excel_filename, index=False)
             print(f"Saved to Excel: {excel_filename}")
@@ -111,7 +87,38 @@ class ExportToExcel:
             # Set the info label
             self.label.config(text=info)
 
-    # Getting all files and dirs from selected Google Drive dir
+    # Process the file
+    def process(self, file):
+        # Building the full path to the file on drive
+        full_path = get_full_path(self.tree, file)
+        path = self.dir_name
+        if full_path:
+            path = self.dir_name + full_path
+
+        # Get the modification date
+        modified_time = file.get('modifiedTime')
+
+        # Get the owner info
+        owner = None
+        if 'owners' in file:
+            owner = file['owners'][0]['displayName']
+
+        # Get the file size
+        file_size = file.get('size')
+
+        # Collecting all file data to the list
+        file_info = {
+            'Name': file.get('name'),
+            'Link': f"https://drive.google.com/file/d/{file['id']}",
+            'Path': path,
+            'Type': file.get('mimeType'),
+            'Owner': owner,
+            'Modification Date': modified_time,
+            'File Size': file_size
+        }
+        self.file_data.append(file_info)
+
+    # Get all files and dirs from selected Google Drive dir
     def get_all_files(self, service, folder_id):
         all_files = []
         query = f"'{folder_id}' in parents and trashed=false"
