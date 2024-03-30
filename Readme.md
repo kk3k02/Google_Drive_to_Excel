@@ -50,4 +50,4 @@ it cannot be a link to a folder "shared with me."
 If you intend to modify the code, you must create 
 a client_secret.JSON file. Instructions on how to 
 create it can be found at this link: 
-https://learndataanalysis.org/google-drive-api-in-python-getting-started-lesson-1/](https://learndataanalysis.org/google-drive-api-in-python-getting-started-lesson-1/
+https://learndataanalysis.org/google-drive-api-in-python-getting-started-lesson-1/
